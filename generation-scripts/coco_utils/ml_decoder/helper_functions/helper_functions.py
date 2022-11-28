@@ -16,7 +16,6 @@ from sklearn.preprocessing import MultiLabelBinarizer
 import pandas as pd
 
 
-
 def parse_args(parser):
     # parsing args
     args = parser.parse_args()
@@ -114,15 +113,15 @@ class CocoDetection(datasets.coco.CocoDetection):
 
         output = torch.zeros((3, 80), dtype=torch.long)
         for obj in target:
-            if obj['area'] < 32 * 32:
-                output[0][self.cat2cat[obj['category_id']]] = 1
-            elif obj['area'] < 96 * 96:
-                output[1][self.cat2cat[obj['category_id']]] = 1
+            if obj["area"] < 32 * 32:
+                output[0][self.cat2cat[obj["category_id"]]] = 1
+            elif obj["area"] < 96 * 96:
+                output[1][self.cat2cat[obj["category_id"]]] = 1
             else:
-                output[2][self.cat2cat[obj['category_id']]] = 1
+                output[2][self.cat2cat[obj["category_id"]]] = 1
         target = output
-        path = coco.loadImgs(img_id)[0]['file_name']
-        img = Image.open(os.path.join(self.root, path)).convert('RGB')
+        path = coco.loadImgs(img_id)[0]["file_name"]
+        img = Image.open(os.path.join(self.root, path)).convert("RGB")
         if self.transform is not None:
             img = self.transform(img)
 
@@ -144,13 +143,17 @@ class ModelEma(torch.nn.Module):
 
     def _update(self, model, update_fn):
         with torch.no_grad():
-            for ema_v, model_v in zip(self.module.state_dict().values(), model.state_dict().values()):
+            for ema_v, model_v in zip(
+                self.module.state_dict().values(), model.state_dict().values()
+            ):
                 if self.device is not None:
                     model_v = model_v.to(device=self.device)
                 ema_v.copy_(update_fn(ema_v, model_v))
 
     def update(self, model):
-        self._update(model, update_fn=lambda e, m: self.decay * e + (1. - self.decay) * m)
+        self._update(
+            model, update_fn=lambda e, m: self.decay * e + (1.0 - self.decay) * m
+        )
 
     def set(self, model):
         self._update(model, update_fn=lambda e, m: m)
@@ -172,7 +175,11 @@ class CutoutPIL(object):
         y2 = np.clip(y_c + h_cutout // 2, 0, h)
         x1 = np.clip(x_c - w_cutout // 2, 0, w)
         x2 = np.clip(x_c + w_cutout // 2, 0, w)
-        fill_color = (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
+        fill_color = (
+            random.randint(0, 255),
+            random.randint(0, 255),
+            random.randint(0, 255),
+        )
         img_draw.rectangle([x1, y1, x2, y2], fill=fill_color)
 
         return x
@@ -189,14 +196,15 @@ def add_weight_decay(model, weight_decay=1e-4, skip_list=()):
         else:
             decay.append(param)
     return [
-        {'params': no_decay, 'weight_decay': 0.},
-        {'params': decay, 'weight_decay': weight_decay}]
+        {"params": no_decay, "weight_decay": 0.0},
+        {"params": decay, "weight_decay": weight_decay},
+    ]
 
 
 def get_class_ids_split(json_path, classes_dict):
     with open(json_path) as fp:
         split_dict = json.load(fp)
-    if 'train class' in split_dict:
+    if "train class" in split_dict:
         only_test_classes = False
     else:
         only_test_classes = True
@@ -208,17 +216,17 @@ def get_class_ids_split(json_path, classes_dict):
     # classes_dict = self.learn.dbunch.dataset.classes
     for idx, (i, current_class) in enumerate(classes_dict.items()):
         if only_test_classes:  # base the division only on test classes
-            if current_class in split_dict['test class']:
+            if current_class in split_dict["test class"]:
                 test_cls_ids.add(idx)
             else:
                 val_cls_ids.add(idx)
                 train_cls_ids.add(idx)
         else:  # per set classes are provided
-            if current_class in split_dict['train class']:
+            if current_class in split_dict["train class"]:
                 train_cls_ids.add(idx)
             # if current_class in split_dict['validation class']:
             #     val_cls_ids.add(i)
-            if current_class in split_dict['test class']:
+            if current_class in split_dict["test class"]:
                 test_cls_ids.add(idx)
 
     train_cls_ids = np.fromiter(train_cls_ids, np.int32)
@@ -228,12 +236,12 @@ def get_class_ids_split(json_path, classes_dict):
 
 
 def update_wordvecs(model, train_wordvecs=None, test_wordvecs=None):
-    if hasattr(model, 'fc'):
+    if hasattr(model, "fc"):
         if train_wordvecs is not None:
             model.fc.decoder.query_embed = train_wordvecs.transpose(0, 1).cuda()
         else:
             model.fc.decoder.query_embed = test_wordvecs.transpose(0, 1).cuda()
-    elif hasattr(model, 'head'):
+    elif hasattr(model, "head"):
         if train_wordvecs is not None:
             model.head.decoder.query_embed = train_wordvecs.transpose(0, 1).cuda()
         else:
@@ -245,15 +253,24 @@ def update_wordvecs(model, train_wordvecs=None, test_wordvecs=None):
 
 def default_loader(path):
     img = Image.open(path)
-    return img.convert('RGB')
+    return img.convert("RGB")
     # return Image.open(path).convert('RGB')
+
 
 class DatasetFromList(data.Dataset):
     """From List dataset."""
 
-    def __init__(self, root, impaths, labels, idx_to_class,
-                 transform=None, target_transform=None, class_ids=None,
-                 loader=default_loader):
+    def __init__(
+        self,
+        root,
+        impaths,
+        labels,
+        idx_to_class,
+        transform=None,
+        target_transform=None,
+        class_ids=None,
+        loader=default_loader,
+    ):
         """
         Args:
 
@@ -289,19 +306,19 @@ class DatasetFromList(data.Dataset):
         # Full (non-partial) labels
         labels = np.zeros(len(self.classes))
         labels[target] = 1
-        target = labels.astype('float32')
+        target = labels.astype("float32")
         return target
 
     def get_relevant_samples(self):
-        new_samples = [s for s in
-                       self.samples if any(x in self.class_ids for x in s[1])]
+        new_samples = [
+            s for s in self.samples if any(x in self.class_ids for x in s[1])
+        ]
         # new_indices = [i for i, s in enumerate(self.samples) if any(x in self.class_ids for x
         #                                                             in s[1])]
         # omitted_samples = [s for s in
         #                    self.samples if not any(x in self.class_ids for x in s[1])]
 
         self.samples = new_samples
-
 
 
 def parse_csv_data(dataset_local_path, metadata_local_path):
@@ -314,12 +331,15 @@ def parse_csv_data(dataset_local_path, metadata_local_path):
     images_path_list = df.values[:, 0]
     # images_path_list = [os.path.join(dataset_local_path, images_path_list[i]) for i in range(len(images_path_list))]
     labels = df.values[:, 1]
-    image_labels_list = [labels.replace('[', "").replace(']', "").split(', ') for labels in
-                             labels]
+    image_labels_list = [
+        labels.replace("[", "").replace("]", "").split(", ") for labels in labels
+    ]
 
     if df.values.shape[1] == 3:  # split provided
-        valid_idx = [i for i in range(len(df.values[:, 2])) if df.values[i, 2] == 'val']
-        train_idx = [i for i in range(len(df.values[:, 2])) if df.values[i, 2] == 'train']
+        valid_idx = [i for i in range(len(df.values[:, 2])) if df.values[i, 2] == "val"]
+        train_idx = [
+            i for i in range(len(df.values[:, 2])) if df.values[i, 2] == "train"
+        ]
     else:
         valid_idx = None
         train_idx = None
@@ -343,10 +363,13 @@ def multilabel2numeric(multilabels):
     return multilabels_numeric, class_to_idx, idx_to_class
 
 
-def get_datasets_from_csv(dataset_local_path, metadata_local_path, train_transform,
-                          val_transform, json_path):
+def get_datasets_from_csv(
+    dataset_local_path, metadata_local_path, train_transform, val_transform, json_path
+):
 
-    images_path_list, image_labels_list, train_idx, valid_idx = parse_csv_data(dataset_local_path, metadata_local_path)
+    images_path_list, image_labels_list, train_idx, valid_idx = parse_csv_data(
+        dataset_local_path, metadata_local_path
+    )
     labels, class_to_idx, idx_to_class = multilabel2numeric(image_labels_list)
 
     images_path_list_train = [images_path_list[idx] for idx in train_idx]
@@ -357,11 +380,22 @@ def get_datasets_from_csv(dataset_local_path, metadata_local_path, train_transfo
 
     train_cls_ids, _, test_cls_ids = get_class_ids_split(json_path, idx_to_class)
 
-    train_dl = DatasetFromList(dataset_local_path, images_path_list_train, image_labels_list_train,
-                               idx_to_class,
-                               transform=train_transform, class_ids=train_cls_ids)
+    train_dl = DatasetFromList(
+        dataset_local_path,
+        images_path_list_train,
+        image_labels_list_train,
+        idx_to_class,
+        transform=train_transform,
+        class_ids=train_cls_ids,
+    )
 
-    val_dl = DatasetFromList(dataset_local_path, images_path_list_val, image_labels_list_val, idx_to_class,
-                             transform=val_transform, class_ids=test_cls_ids)
+    val_dl = DatasetFromList(
+        dataset_local_path,
+        images_path_list_val,
+        image_labels_list_val,
+        idx_to_class,
+        transform=val_transform,
+        class_ids=test_cls_ids,
+    )
 
     return train_dl, val_dl, train_cls_ids, test_cls_ids

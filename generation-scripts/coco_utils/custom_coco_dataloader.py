@@ -8,12 +8,14 @@ from torchvision.datasets.vision import VisionDataset
 
 import pdb
 
-def get_correspondences(model_arr,dset_dict):
+
+def get_correspondences(model_arr, dset_dict):
     corr = {}
     for i in range(model_arr.shape[0]):
         corr[i] = list(dset_dict.keys())[i]
-    corr = {y:x for x,y in corr.items()}
+    corr = {y: x for x, y in corr.items()}
     return corr
+
 
 class CocoDetectionWithPaths(VisionDataset):
     """`MS Coco Detection <https://cocodataset.org/#detection-2016>`_ Dataset.
@@ -46,7 +48,7 @@ class CocoDetectionWithPaths(VisionDataset):
         from pycocotools.coco import COCO
 
         self.coco = COCO(annFile)
-        self.corr = get_correspondences(classes_list,self.coco.cats)
+        self.corr = get_correspondences(classes_list, self.coco.cats)
         self.ids = list(sorted(self.coco.imgs.keys()))
 
     def _load_image(self, id: int) -> Image.Image:
@@ -67,13 +69,12 @@ class CocoDetectionWithPaths(VisionDataset):
         label = torch.zeros((80,))
 
         if len(target) != 0:
-            annotations = self.coco.getAnnIds(imgIds=int(target[0]['image_id']))
+            annotations = self.coco.getAnnIds(imgIds=int(target[0]["image_id"]))
 
             for annotation in self.coco.loadAnns(annotations):
-                label[self.corr[annotation['category_id']]] = 1
+                label[self.corr[annotation["category_id"]]] = 1
 
         return image, label, self.coco.loadImgs(id)[0]["file_name"]
-
 
     def __len__(self) -> int:
         return len(self.ids)

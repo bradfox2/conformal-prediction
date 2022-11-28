@@ -9,7 +9,9 @@ def calc_activation(ABN_layer):
         if ABN_layer.activation == "relu":
             activation = nn.ReLU(inplace=True)
         elif ABN_layer.activation == "leaky_relu":
-            activation = nn.LeakyReLU(negative_slope=ABN_layer.activation_param, inplace=True)
+            activation = nn.LeakyReLU(
+                negative_slope=ABN_layer.activation_param, inplace=True
+            )
         elif ABN_layer.activation == "elu":
             activation = nn.ELU(alpha=ABN_layer.activation_param, inplace=True)
     return activation
@@ -22,19 +24,19 @@ def fuse_bn_to_conv(bn_layer, conv_layer):
 
     # BatchNorm params
     eps = bn_layer.eps
-    mu = bn_st_dict['running_mean']
-    var = bn_st_dict['running_var']
-    gamma = bn_st_dict['weight']
+    mu = bn_st_dict["running_mean"]
+    var = bn_st_dict["running_var"]
+    gamma = bn_st_dict["weight"]
 
-    if 'bias' in bn_st_dict:
-        beta = bn_st_dict['bias']
+    if "bias" in bn_st_dict:
+        beta = bn_st_dict["bias"]
     else:
         beta = torch.zeros(gamma.size(0)).float().to(gamma.device)
 
     # Conv params
-    W = conv_st_dict['weight']
-    if 'bias' in conv_st_dict:
-        bias = conv_st_dict['bias']
+    W = conv_st_dict["weight"]
+    if "bias" in conv_st_dict:
+        bias = conv_st_dict["bias"]
     else:
         bias = torch.zeros(W.size(0)).float().to(gamma.device)
 
@@ -61,10 +63,14 @@ def fuse_bn_sequential(block):
     :return: nn.Sequential. Converted block
     """
 
-    if not isinstance(block, nn.Sequential) and not hasattr(block, 'bn'):
+    if not isinstance(block, nn.Sequential) and not hasattr(block, "bn"):
         return block
     stack = []
-    if isinstance(block, nn.Sequential) and len(block) == 1 and isinstance(block[0], nn.Sequential):  # 'downsample' layer in tresnet
+    if (
+        isinstance(block, nn.Sequential)
+        and len(block) == 1
+        and isinstance(block[0], nn.Sequential)
+    ):  # 'downsample' layer in tresnet
         block = block[0]
     for m in block.children():
         if isinstance(m, nn.BatchNorm2d) or isinstance(m, ABN):
@@ -74,7 +80,11 @@ def fuse_bn_sequential(block):
                     activation = calc_activation(m)
                     if activation is not None:
                         stack.append(activation)
-        elif isinstance(m, nn.BatchNorm1d) and len(stack) > 0 and isinstance(stack[-1], torch.nn.Linear):
+        elif (
+            isinstance(m, nn.BatchNorm1d)
+            and len(stack) > 0
+            and isinstance(stack[-1], torch.nn.Linear)
+        ):
             fuse_bn_to_conv(m, stack[-1])
         else:
             stack.append(m)
